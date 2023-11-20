@@ -1,0 +1,37 @@
+# train_params:
+max_steps: -1
+
+# eval_params:
+do_eval: true
+steps: -1
+
+# save_params:
+do_save: true
+dir: './outputs'
+
+# optimizer_params:
+# learning_rate: 0.0001
+gradient_clip: true
+gradient_clip_norm: 5.0
+
+# checkpoint_params:
+path: null
+
+random_seed: null
+
+# wandb_reporting:
+project_name: 'rl-prompt'
+run_name: null
+
+
+
+
+# lzy
+batch_size: 2
+num_epochs: 1
+log_with: wandb
+learning_rate: 5e-5
+max_grad_norm: 5.0
+ref_update_method: polyak
+ref_learning_rate:  0.001
+sql_loss_impl: v2_v2r_v3_v3r

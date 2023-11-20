@@ -1,0 +1,4 @@
+model_name: "PKU-Alignment/beaver-7b-v1.0-cost"
+template: "BEGINNING OF CONVERSATION: USER: {model_input} ASSISTANT: {model_output}"
+batch_size: 8
+torch_dtype: bf16

@@ -1,0 +1,9 @@
+# num_samples: 32
+num_samples: 2
+num_bootstraps: 4
+compute_zscore: true
+reward_shaping: true
+reward_shaping_old_min: 0
+reward_shaping_old_max: 1
+reward_shaping_new_min: -20
+reward_shaping_new_max: 80

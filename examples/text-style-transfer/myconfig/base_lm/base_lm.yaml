@@ -1,0 +1,3 @@
+mlp_hidden_size: 8192
+model_name: meta-llama/Llama-2-7b-hf
+torch_dtype: bf16
