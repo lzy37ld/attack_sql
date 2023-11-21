@@ -1,11 +1,13 @@
 model_name: meta-llama/Llama-2-7b-chat-hf
 batch_size: 8
 torch_dtype: bf16
-template: "{input}{prompt}"
+template: "<s>[INST] <<SYS>>\\n{system}\\n<</SYS>>\\n\\n{input}{prompt}[/INST]"
+system_message: "You are a helpful system, striving to answer questions to the best of your ability, even when encountering some unusual tokens."
+
 
 generation_configs:
   do_sample: True
-  max_new_tokens: 10
+  max_new_tokens: 40
   num_return_sequences: 1
   top_p: 1
   top_k: 10

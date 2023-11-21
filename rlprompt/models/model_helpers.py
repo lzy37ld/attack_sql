@@ -19,29 +19,24 @@ def set_pad_token(t):
 
 
 def make_my_base_lm(config,mlp_state_dict):
-    if config.lzy.debug:
-        my_config = AutoConfig.from_pretrained(config.base_lm.model_name)
-        my_config.mlp_hidden_size = 100
-        kwargs = check_torch_dtype(config.base_lm)
-        model = MyModel_Debug.from_pretrained(config.base_lm.model_name,config = my_config,**kwargs)
-        tokenizer = set_pad_token(AutoTokenizer.from_pretrained(config.base_lm.model_name))
-        # 是否需要resize一下加入pad token呢？感觉不需要
-    
-    else:
-        my_config = AutoConfig.from_pretrained(config.base_lm.model_name)
-        my_config.mlp_hidden_size = config.base_lm.mlp_hidden_size
-        kwargs = check_torch_dtype(config.base_lm)
-        model = MyModel.from_pretrained(config.base_lm.model_name,config = my_config,**kwargs)
-        tokenizer = set_pad_token(AutoTokenizer.from_pretrained(config.base_lm.model_name))
+
+    my_config = AutoConfig.from_pretrained(config.base_lm.model_name)
+    my_config.mlp_hidden_size = config.base_lm.mlp_hidden_size
+    kwargs = check_torch_dtype(config.base_lm)
+    model = MyModel.from_pretrained(config.base_lm.model_name,config = my_config,**kwargs)
+    tokenizer = set_pad_token(AutoTokenizer.from_pretrained(config.base_lm.model_name))
     if mlp_state_dict is not None:
         model.mlp.load_state_dict(mlp_state_dict)
 
     for param in model.lm_head.parameters():
-        param.requires_grad = False
+        param.requires_grad = config.base_lm.grad_lm_head
     for param in model.model.parameters():
-        param.requires_grad = False    
+        param.requires_grad = config.base_lm.grad_model 
 
     return model,tokenizer
+
+
+
 
 
 # 这里可能考虑吧adaptor_lm的config要和prompt_lm的融合一下

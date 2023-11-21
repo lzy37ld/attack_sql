@@ -5,34 +5,32 @@ defaults:
   - prompt_lm: prompt_lm
   - reward_lm: reward_lm
   - target_lm: target_lm
-  - sql_module: sql_module
   - trainer: trainer
   - handler: handler
   - _self_
 
-# lzy:
-#   debug: false
-# reward_lm:
-#   debug: false
-# target_lm:
-#   debug: false
-# base_lm:
-#   debug: false
 
-
-lzy:
-  debug: true
 reward_lm:
-  debug: true
-  model_name: gpt2
-  torch_dtype: bf16
+  debug: false
 target_lm:
-  debug: true
-  model_name: gpt2
-  torch_dtype: bf16
+  debug: false
 base_lm:
-  debug: true
-  model_name: facebook/opt-125m
-  torch_dtype: bf16
+  debug: false
+trainer:
+  num_epochs: 2
+
+
+# reward_lm:
+#   debug: true
+#   model_name: gpt2
+#   torch_dtype: bf16
+# target_lm:
+#   debug: true
+#   model_name: gpt2
+#   torch_dtype: bf16
+# base_lm:
+#   debug: true
+#   model_name: stas/tiny-random-llama-2
+#   torch_dtype: bf16
 # trainer:
 #   log_with: null

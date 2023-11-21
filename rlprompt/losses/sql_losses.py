@@ -114,7 +114,7 @@ def soft_q_loss_with_sparse_rewards_1(
         rewards: torch.Tensor,
         sequence_length: torch.LongTensor,
 ) -> Tuple[torch.Tensor, Dict[str, Any]]:
-
+    # Q是action选中的那些logits
     Q = loss_utils.gather_2d_on_last_dim(
         tensor=logits,
         index=actions,
@@ -150,7 +150,7 @@ def soft_q_loss_with_sparse_rewards_2(
         sequence_length: torch.LongTensor,
         _recover_mle: bool = False,
 ) -> Tuple[torch.Tensor, Dict[str, Any]]:
-
+    # Q是action选中的那些logits
     Q = loss_utils.gather_2d_on_last_dim(
         tensor=logits,
         index=actions,
@@ -210,7 +210,7 @@ def soft_q_loss_with_sparse_rewards_3(
         sequence_length: torch.LongTensor,
         freeze_future_steps: bool = False,
 ) -> Tuple[torch.Tensor, Dict[str, Any]]:
-
+    # Q是action选中的那些logits
     Q = loss_utils.gather_2d_on_last_dim(
         tensor=logits,
         index=actions,

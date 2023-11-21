@@ -9,10 +9,10 @@ from rlprompt.modules import SQLModuleConfig, make_sql_module
 from rlprompt.models import (make_lm_adaptor_model,make_input_conditioned_prompt_model)
 from rlprompt.utils.utils import (colorful_print, compose_hydra_config_store,
                                   get_hydra_output_dir)
-from tst_helpers import (make_prompted_text_style_transfer_reward,make_attack_datasets,
+from tst_helpers import (make_prompted_text_style_transfer_reward,make_attack_datasets,attack_collate_fn,
                          make_text_style_transfer_datasets,
                          get_style_classifier)
-from tst_modules import create_reward,create_targetlm, create_reflm,Handler,run_train
+from tst_modules import create_reward,create_targetlm, create_reflm,Handler,run_train_sql_on,run_train_sql_off
 
 from collections import defaultdict
 import torch
@@ -26,9 +26,38 @@ from torch.utils.data import DataLoader
 import copy
 from utils import repeat_texts,is_main_process,is_dist
 from accelerate.utils import set_seed
-
+from enum import Enum
 set_seed(42)
 
+
+class ForwardMode(Enum):
+    SQL_ON = "SQL_ON"
+    SQL_OFF_GT = "SQL_OFF_GT"
+    INFER = "INFER"
+
+def get_forward_modes(
+    training_mode,
+    mix_strategy,
+    step
+):
+    if training_mode == "sql-mixed":
+        candidate_modes = [
+            ForwardMode.SQL_OFF_GT,
+            ForwardMode.SQL_ON]
+
+        if mix_strategy == "alternate":
+            modes = [candidate_modes[step % len(candidate_modes)]]
+        elif mix_strategy == "mix":
+            modes = candidate_modes
+        else:
+            raise NotImplementedError()
+
+    else:
+        training_mode_map = {"sql-onpolicy": ForwardMode.SQL_ON,
+                             "sql-offpolicy": ForwardMode.SQL_OFF_GT}
+        modes = [training_mode_map[training_mode]]
+
+    return modes
 
 
 
@@ -44,7 +73,7 @@ def main(config: "DictConfig"):
 
     # train_dataset, val_dataset, test_dataset = \
     #     make_text_style_transfer_datasets(config.data)
-    train_dataset = make_attack_datasets(config.data)
+    train_dataset,test_dataset = make_attack_datasets(config.data)
     print('Train Size:', len(train_dataset))
     print('Examples:', train_dataset[:5])
 
@@ -59,7 +88,9 @@ def main(config: "DictConfig"):
     handler = Handler(config.handler)
 
     train_config = config.trainer
-    train_dataloader = DataLoader(train_dataset,shuffle= True,batch_size= train_config.batch_size)
+    data_config = config.data
+    prompt_model_config = config.prompt_lm
+    train_dataloader = DataLoader(train_dataset,shuffle= True,batch_size= train_config.batch_size,collate_fn=attack_collate_fn)
     optimizer = torch.optim.AdamW(prompt_model.parameters(), lr=train_config.learning_rate)
 
     accelerator = Accelerator(log_with=train_config.log_with)
@@ -73,19 +104,36 @@ def main(config: "DictConfig"):
         init_kwargs={"wandb": {"entity": "lzy37ld"}}
         # 可以考虑要不要设置run_name
         )
-
+    
+    over_all_steps = 0
     for epoch in range(train_config.num_epochs):
         for step, batch in enumerate(train_dataloader):
+            over_all_steps += 1
             # 请注意有duplicate现象，需要处理
             # 或者我直接batsize不设置太大，让后确保# data = num_process * bathsize.. (我没有gradient accumulation)
             
-            sql_loss,rewards = run_train(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config)
+
+            # TODO:写一个mode循环，先off_policy再 on(warm up)，可以写不同的strategy
+            # TODO:保存reward
+
+            modes = get_forward_modes(training_mode= train_config.training_mode, mix_strategy= train_config.mix_strategy, step = step)
+            loss_list = []
+            for mode in modes:
+                if mode == ForwardMode.SQL_OFF_GT:
+                    _sql_loss,rewards = run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,prompt_model_config)
+                elif mode == ForwardMode.SQL_ON:
+                    _sql_loss,rewards = run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,prompt_model_config)
+                else:
+                    raise NotImplementedError()
+                loss_list.append(_sql_loss)
+
+            loss = torch.mean(torch.stack(loss_list))
             if train_config.log_with is not None:
-                accelerator.log({"train_sql_loss":sql_loss,
+                accelerator.log({"train_sql_loss":loss,
                                 "rewards_main_process":rewards.mean().item()},
-                                step=step)
+                                step=over_all_steps)
                 
-            accelerator.backward(sql_loss)
+            accelerator.backward(loss)
             if accelerator.sync_gradients:
                 if train_config.max_grad_norm is not None:
                     accelerator.clip_grad_norm_(prompt_model.parameters(), train_config.max_grad_norm)
@@ -111,7 +159,7 @@ def main(config: "DictConfig"):
 
 
     prompt_model_for_save = accelerator.unwrap_model(prompt_model)
-    prompt_model_for_save.save_pretrained(
+    prompt_model_for_save._model.model.save_pretrained(
     "./my_save_ckpt",
     is_main_process=accelerator.is_main_process,
     save_function=accelerator.save,

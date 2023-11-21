@@ -8,13 +8,28 @@ from typing import Optional, Tuple, List
 
 
 class AttackDataset(Dataset):
-    def __init__(self,source_texts):
-        self.source_texts = source_texts
+    def __init__(self,datas,keys):
+        self.datas = datas
+        self.keys = keys
     def __len__(self):
-        return len(self.source_texts)
+        return len(self.datas)
     def __getitem__(self, index):
-        return {'source_texts': self.source_texts[index]}
+        d = {}
+        for i,key in enumerate(self.keys):
+            d[key] = self.datas[index][i]
+        return d
     
+
+def attack_collate_fn(batch):
+
+    collated_batch = {}
+    for item in batch:
+        for key, value in item.items():
+            if key in collated_batch:
+                collated_batch[key].append(value)
+            else:
+                collated_batch[key] = [value]
+    return collated_batch  
 
 class TextStyleTransferDataset(Dataset):
     def __init__(self, source_texts, target_labels):

@@ -1,8 +1,16 @@
-# num_samples: 32
-num_samples: 2
-num_bootstraps: 4
-compute_zscore: true
-reward_shaping: true
+num_samples: 4
+# bootstrap 2 times, each time sample 4, and use mean as average
+num_bootstraps: 2
+
+# rl-prompt use them for stability
+# we use it because maybe one prompt could jailbreak if you sampling from target model multiple times(# bootstrap * # samples each time, I just took max rewards for each bootstrapping, like if they jailbreak, then we encourage it..).
+
+
+#why we dont need normalization:
+# suppoe input x have two prompt p1, p2, (two episode) if p1 is close to the distribution of jailbreaking prompt, it would have high rewards, and p2 would have low rewards, so looks like doing normalization according to each x would have no problem? As they still differs.
+# it need exps.
+compute_zscore: false
+reward_shaping: false
 reward_shaping_old_min: 0
 reward_shaping_old_max: 1
 reward_shaping_new_min: -20

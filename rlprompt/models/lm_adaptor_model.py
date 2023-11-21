@@ -177,13 +177,12 @@ class LMAdaptorModel(BaseModel):
             # from huggingface
             probs = nn.functional.softmax(sampling_logits, dim=-1)
             actions = torch.multinomial(probs, num_samples=1).squeeze(1)
-            try:
-                tokens = [self.tokenizer.convert_ids_to_tokens([a])[0]
-                        for a in actions.tolist()]
-                token_strs = [self.tokenizer.convert_tokens_to_string([t])
-                            for t in tokens]
-            except:
-                print(1)
+        
+            tokens = [self.tokenizer.convert_ids_to_tokens([a])[0]
+                    for a in actions.tolist()]
+            token_strs = [self.tokenizer.convert_tokens_to_string([t])
+                        for t in tokens]
+
 
             for s, t in zip(sample_tokens, tokens): 
                 s.append(t)
@@ -202,8 +201,7 @@ class LMAdaptorModel(BaseModel):
                                         for _ in range(sample_ids.shape[0])])
                           .to(device))
 
-        output = dict(sample_tokens=sample_tokens,
-                      sample_logits=sample_logits,
+        output = dict(sample_logits=sample_logits,
                       sample_ids=sample_ids,
                       sample_lengths=sample_lengths)
         return output

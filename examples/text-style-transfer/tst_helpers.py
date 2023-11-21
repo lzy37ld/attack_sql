@@ -16,10 +16,30 @@ def make_attack_datasets(data_config):
     datas = []
     with jsonlines.open(path) as reader:
         for line in reader:
-            datas.append(line[data_config.key])
-    dataset = AttackDataset(datas)
-    return dataset
+            tmp = []
+            for key in data_config["keys"]:
+                tmp.append(line[key])
+            datas.append(tmp)
+    ratio = data_config.ratio
+    train_ratio = (ratio.train / ratio.train + ratio.test)
+    train_datas = datas[:int(len(train_datas) * train_ratio)]
+    test_datas = datas[int(len(train_datas) * train_ratio):]
+    train_dataset = AttackDataset(train_datas,data_config["keys"])
+    test_dataset = AttackDataset(test_datas,data_config["keys"])
+    return train_dataset,test_dataset
     
+def attack_collate_fn(batch):
+
+    collated_batch = {}
+    for item in batch:
+        for key, value in item.items():
+            if key in collated_batch:
+                collated_batch[key].append(value)
+            else:
+                collated_batch[key] = [value]
+    return collated_batch  
+
+
 
 
 def make_text_style_transfer_datasets(

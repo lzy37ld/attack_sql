@@ -1,18 +1,13 @@
-import csv
+import json
 import jsonlines
-
-with open("/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behaviors.csv") as f:
-    l = []
-    
-    for index,line in enumerate(csv.reader(f)):
-        d = {}
-        if index == 0:
-            name0,name1 = line
-        else:
-            d[name0] = line[0]
-            d[name1] = line[1]
-            l.append(d)
-        
-with jsonlines.open("/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behaviors.jsonl","w") as writer:
-    writer.write_all(l)
-        
+with open("/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/_harmful_behaviors_offline_offset_100.json") as f:
+  data = json.load(f)
+l = []	
+for i in range(len(data["goal"])):
+  d = {}
+  d["goal"] = data["goal"][i]
+  d["target"] = data["target"][i]
+  d["controls"] = data["controls"][i]
+  l.append(d)
+with jsonlines.open("/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behaviors_offline_offset_100.json","w") as f:
+  f.write_all(l)
