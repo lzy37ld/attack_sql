@@ -1,7 +1,7 @@
 # path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behaviors.jsonl
 # keys: [goal]
 
-path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behaviors_offline_offset_100.json
+path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behavior_controls.json
 ratio:
   train: 7
   test: 3

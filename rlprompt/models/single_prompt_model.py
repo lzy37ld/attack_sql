@@ -56,8 +56,11 @@ class SinglePromptModel(BaseModel):
         source_texts: List[str],
         sample_ids: torch.LongTensor,
         device,
+        source_train_reps = None,
         **kwargs
     ) -> Dict[str, Any]:
+        if source_train_reps is None:
+            source_train_reps = self.source_train_reps
         prompt_source = self._get_prompt_source(self.source_train_reps)
         return self._model.teacher_forcing(source_texts=prompt_source,
                                            sample_ids=sample_ids,

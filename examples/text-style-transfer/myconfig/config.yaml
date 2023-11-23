@@ -34,3 +34,4 @@ trainer:
 #   torch_dtype: bf16
 # trainer:
 #   log_with: null
+#   # training_mode: sql-onpolicy

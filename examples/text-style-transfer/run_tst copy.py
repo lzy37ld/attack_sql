@@ -41,10 +41,7 @@ def get_forward_modes(
     mix_strategy,
     step,
 ):
-    # sql-mixed - alternate
-    # sql-mixed - mix
-    # sql-onpolicy
-    # sql-offpolicy
+
     if training_mode == "sql-mixed":
         candidate_modes = [
             ForwardMode.SQL_OFF_GT,
@@ -85,7 +82,6 @@ def main(config: "DictConfig"):
     #     make_text_style_transfer_datasets(config.data)
     train_dataset,test_dataset = make_attack_datasets(config.data)
     print('Train Size:', len(train_dataset))
-    print('Test Size:', len(test_dataset))
     print('Examples:', train_dataset[:5])
 
     policy_model,prompt_model_tokenizer = make_lm_adaptor_model(config)
@@ -101,7 +97,21 @@ def main(config: "DictConfig"):
     train_config = config.trainer
     data_config = config.data
     prompt_model_config = config.prompt_lm
-    train_dataloader = DataLoader(train_dataset,shuffle= True,batch_size= train_config.batch_size,collate_fn=attack_collate_fn)
+    # need set shuffle to True when we have all datas!!!
+    # train_dataloader = DataLoader(train_dataset,shuffle= True,batch_size= train_config.batch_size,collate_fn=attack_collate_fn)
+    # TODO: change it!
+    # TODO: change it!
+    # TODO: change it!
+    # TODO: change it!
+    # TODO: change it!
+    # TODO: change it!
+    # TODO: change it!
+    # TODO: change it!
+    # TODO: change it!
+    # TODO: change it!
+    # TODO: change it!
+    
+    train_dataloader = DataLoader(train_dataset,batch_size= train_config.batch_size,collate_fn=attack_collate_fn)
     optimizer = torch.optim.AdamW(prompt_model.parameters(), lr=train_config.learning_rate)
 
     accelerator = Accelerator(log_with=train_config.log_with,mixed_precision=train_config.mixed_precision)
@@ -112,7 +122,7 @@ def main(config: "DictConfig"):
         accelerator.init_trackers(
         project_name="my_attack", 
         config=dict(config),
-        init_kwargs={"wandb": {"entity": "lzy37ld","name":ckpt_name}}
+        init_kwargs={"wandb": {"entity": "lzy37ld"}}
         # 可以考虑要不要设置run_name
         )
     
@@ -130,32 +140,29 @@ def main(config: "DictConfig"):
 
             modes = get_forward_modes(training_mode= train_config.training_mode, mix_strategy= train_config.mix_strategy, step = step)
             loss_list = []
-            reward_list = []
             for mode in modes:
+                if len(batch["controls"][0]) == 0 and mode == ForwardMode.SQL_OFF_GT:
+                    print("force to use on policy")
+                    mode = ForwardMode.SQL_ON
+
                 if mode == ForwardMode.SQL_OFF_GT:
-                    _sql_loss,_rewards = run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config)
+                    _sql_loss,rewards = run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,prompt_model_config)
                 elif mode == ForwardMode.SQL_ON:
-                    _sql_loss,_rewards = run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config)
+                    _sql_loss,rewards = run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,prompt_model_config)
                 else:
                     raise NotImplementedError()
-                if _sql_loss is not None:
-                    loss_list.append(_sql_loss)
-                    reward_list.append(_rewards)
-                    
-            if len(loss_list) == 0:
-                continue
+                loss_list.append(_sql_loss)
 
             loss = torch.mean(torch.stack(loss_list)).requires_grad_(True)
-            rewards = torch.mean(torch.stack(reward_list))
-
             if train_config.log_with is not None:
                 accelerator.log({"train_sql_loss":loss,
-                                "rewards_main_process":rewards},
+                                "rewards_main_process":rewards.mean().item()},
                                 step=over_all_steps)
                 
             accelerator.backward(loss)
             if accelerator.sync_gradients:
                 if train_config.max_grad_norm is not None:
+                    # in the deepspeed, they are no-op
                     accelerator.clip_grad_norm_(prompt_model.parameters(), train_config.max_grad_norm)
             optimizer.step()
             # lr_scheduler.step()
@@ -177,6 +184,7 @@ def main(config: "DictConfig"):
 
 
             # TODO:eval
+            # TODO: check if the mlp change and only mlp change
             # prompt_model.eval()
         #             model.eval()
             # @torch.no_grad()

@@ -1,11 +1,14 @@
-# Assuming two processes, with a batch size of 5 on a dataset with 9 samples
-import torch
-from accelerate import Accelerator
+import json
+import jsonlines
+with open("/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/individual_behavior_controls.json") as f:
+	data = json.load(f)
 
-accelerator = Accelerator()
-dataloader = torch.utils.data.DataLoader(range(8), batch_size=2)
-dataloader = accelerator.prepare(dataloader)
-print(len(dataloader))
-# batch = next(iter(dataloader))
-# gathered_items = accelerator.gather_for_metrics(batch)
-# len(gathered_items)
+l = []
+for index in range(len(data["goal"])):
+	d = {}
+	d["goal"] = data["goal"][index]
+	d["target"] = data["target"][index]
+	d["controls"] = data["controls"][index]
+	l.append(d)
+with jsonlines.open("/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behavior_controls.json","w") as f:
+	f.write_all(l)

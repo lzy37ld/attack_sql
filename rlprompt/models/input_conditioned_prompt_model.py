@@ -73,9 +73,11 @@ class InputConditionedPromptModel(BaseModel):
         self,
         source_texts: List[str],
         sample_ids: torch.LongTensor,
+        source_train_reps = None,
         **kwargs
     ) -> Dict[str, Any]:
-        source_reps = self._do_source_reps(source_texts, self.source_train_reps)
+
+        source_reps = self._do_source_reps(source_texts, int(sample_ids.shape[0]/len(source_texts)))
         # print(sample_ids)
         return self._model.teacher_forcing(source_texts=source_reps,
                                            sample_ids=sample_ids,

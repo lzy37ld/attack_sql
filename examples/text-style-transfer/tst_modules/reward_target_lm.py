@@ -210,8 +210,8 @@ def create_reflm(config,mlp_state_dict):
                 self.ref_model = ref_model
 
             @torch.no_grad()
-            def teacher_forcing(self,source_texts,sample_ids):
-                return self.ref_model.teacher_forcing(source_texts,sample_ids)
+            def teacher_forcing(self,source_texts,sample_ids,source_train_reps = None):
+                return self.ref_model.teacher_forcing(source_texts,sample_ids,source_train_reps)
             
         ref_instance = ref_lm_class(config,mlp_state_dict)
         ref_lm_device = ref_instance.device
@@ -366,7 +366,7 @@ class Handler:
 
 
 
-def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,prompt_model_config):
+def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config):
     
     outputs = prompt_model.generate(batch[data_config["keys"][data_config.source_text_pos]], do_sample = True)
     # outputs :sample_tokens, sample_logits, sample_ids, sample_length
@@ -451,20 +451,24 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
 
 
 
-def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,prompt_model_config):
+def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config):
     
     off_tokens = batch[data_config["keys"][data_config.id_tokens_pos]]
-    off_ids = prompt_model_tokenizer(off_tokens,return_tensors = "np",add_special_tokens = False).input_ids
+    # off_ids = prompt_model_tokenizer(off_tokens,return_tensors = "np",add_special_tokens = False).input_ids
+    # off_ids = np.stack(off_ids)
+    # off_ids = torch.tensor(off_ids.astype(np.int64)).to(f"cuda:{accelerator.process_index}",dtype=torch.int64)
+    off_ids = prompt_model_tokenizer(off_tokens,return_tensors = "pt",add_special_tokens = False).input_ids.to(f"cuda:{accelerator.process_index}")
 
     # TODO: off_ids repeat since in the teacher_forcing, they would repeat!! but this raise a concern about they would learn to know each input would generate the same prompt?? then it has no point to repeat it any more? set rep_train = 1??
-    off_ids = torch.tensor(np.repeat(off_ids,2,axis=0)).to(f"cuda:{accelerator.process_index}")
-    assert off_ids.shape[1] == prompt_model_config.prompt_length
+    # off_ids = torch.tensor(np.repeat(off_ids,prompt_model.source_train_reps,axis=0)).to(f"cuda:{accelerator.process_index}",dtype=torch.int64)
+
+    assert off_ids.shape[1] == prompt_model.prompt_length
     outputs = prompt_model.teacher_forcing(source_texts = batch[data_config["keys"][data_config.source_text_pos]],
                                            sample_ids = off_ids)
     
     sample_logits,sample_ids = outputs['sample_logits'],outputs['sample_ids']
     gathered_sample_ids = accelerator.gather(sample_ids)
-    source_texts_tokens = prompt_model_tokenizer(batch["source_texts"],padding = True, truncation = True,return_tensors = "pt")["input_ids"].to(accelerator.process_index)
+    source_texts_tokens = prompt_model_tokenizer(batch[data_config["keys"][data_config.source_text_pos]],padding = True, truncation = True,return_tensors = "pt")["input_ids"].to(accelerator.process_index)
     padded_source_texts_tokens = accelerator.pad_across_processes(source_texts_tokens,dim = 1, pad_index = prompt_model_tokenizer.eos_token_id, pad_first= False)
     gathered_source_texts_tokens = accelerator.gather(padded_source_texts_tokens)
     device = sample_ids.device
@@ -527,7 +531,20 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
     if accelerator.is_main_process:
         assert all(rewards == rewards_all[0])
 
-    sample_length = torch.full((sample_logits.shape[0],), prompt_model_config.prompt_length).to(f"cuda:{accelerator.process_index}")
+    sample_length = torch.full((sample_logits.shape[0],), prompt_model.prompt_length).to(f"cuda:{accelerator.process_index}")
+
+    if train_config.only_compute_for_gt0_when_off:
+        gt0_index = torch.where(rewards > 0)
+        if gt0_index.shape[0] == 0:
+
+            return None,None
+
+        sample_logits = sample_logits[gt0_index]
+        ref_logits = ref_logits[gt0_index]
+        sample_ids = sample_ids[gt0_index]
+        rewards = rewards[gt0_index]
+        sample_length = sample_length[gt0_index]
+
 
     sql_loss, sql_loss_log = sql_loss_with_sparse_rewards(
         implementation=train_config.sql_loss_impl,
