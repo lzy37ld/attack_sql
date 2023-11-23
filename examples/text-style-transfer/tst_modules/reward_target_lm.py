@@ -535,9 +535,9 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
 
     if train_config.only_compute_for_gt0_when_off:
         gt0_index = torch.where(rewards > 0)
-        if gt0_index.shape[0] == 0:
+        if gt0_index[0].shape[0] == 0:
 
-            return None,None
+            return torch.tensor(0).to(f"cuda:{accelerator.process_index}",dtype=torch.bfloat16),torch.tensor([0]).to(f"cuda:{accelerator.process_index}",dtype=torch.bfloat16)
 
         sample_logits = sample_logits[gt0_index]
         ref_logits = ref_logits[gt0_index]
@@ -554,5 +554,5 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         sampled_actions=None,
         rewards=rewards,
         sequence_length=sample_length)
-    return sql_loss, rewards
+    return sql_loss, rewards.mean()
     

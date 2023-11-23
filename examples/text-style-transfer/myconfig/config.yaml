@@ -16,8 +16,6 @@ target_lm:
   debug: false
 base_lm:
   debug: false
-trainer:
-  num_epochs: 2
 
 
 # reward_lm:

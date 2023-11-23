@@ -28,7 +28,7 @@ run_name: null
 mixed_precision: bf16
 only_compute_for_gt0_when_off: false
 batch_size: 2
-num_epochs: 3
+num_epochs: 200
 log_with: wandb
 learning_rate: 5e-5
 max_grad_norm: 5.0

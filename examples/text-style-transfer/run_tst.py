@@ -28,6 +28,7 @@ from utils import repeat_texts,is_main_process,is_dist
 from accelerate.utils import set_seed
 from enum import Enum
 import pathlib
+from tqdm.auto import tqdm
 set_seed(42)
 
 
@@ -115,10 +116,13 @@ def main(config: "DictConfig"):
         init_kwargs={"wandb": {"entity": "lzy37ld","name":ckpt_name}}
         # 可以考虑要不要设置run_name
         )
-    
+
+
+    progress_bar = tqdm(range(train_config.num_epochs * len(train_dataloader)), disable=not accelerator.is_local_main_process)
     over_all_steps = 0
     for epoch in range(train_config.num_epochs):
         for step, batch in enumerate(train_dataloader):
+            progress_bar.update(1)
             prompt_model.train()
             over_all_steps += 1
             # 请注意有duplicate现象，需要处理
@@ -138,10 +142,9 @@ def main(config: "DictConfig"):
                     _sql_loss,_rewards = run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config)
                 else:
                     raise NotImplementedError()
-                if _sql_loss is not None:
-                    loss_list.append(_sql_loss)
-                    reward_list.append(_rewards)
-                    
+                loss_list.append(_sql_loss)
+                reward_list.append(_rewards)
+
             if len(loss_list) == 0:
                 continue
 
