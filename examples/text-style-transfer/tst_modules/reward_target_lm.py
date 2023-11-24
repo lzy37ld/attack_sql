@@ -12,6 +12,18 @@ from rlprompt.losses import sql_loss_with_sparse_rewards
 from rlprompt.models import (make_lm_adaptor_model, make_input_conditioned_prompt_model,check_torch_dtype)
 
 import numpy as np
+
+def pair_src_p_target(s,p,t):
+    repeat = int(len(t)/len(s))
+    l = []
+    for i in range(len(s)):
+        d = {}
+        d["s"] = s[i]
+        d['p'] = p[i]
+        d["t"] = t[i * repeat: (i+1) * repeat]
+        l.append(d)
+    return l
+
 # 为什么我不用deepspeed，本质上可以用，但是我一个gpu的vram太小了，所以多放几个model，不一定放得下，还不如分开。。。
 def create_reward(config):
         
@@ -210,8 +222,8 @@ def create_reflm(config,mlp_state_dict):
                 self.ref_model = ref_model
 
             @torch.no_grad()
-            def teacher_forcing(self,source_texts,sample_ids,source_train_reps = None):
-                return self.ref_model.teacher_forcing(source_texts,sample_ids,source_train_reps)
+            def teacher_forcing(self,source_texts,sample_ids):
+                return self.ref_model.teacher_forcing(source_texts,sample_ids)
             
         ref_instance = ref_lm_class(config,mlp_state_dict)
         ref_lm_device = ref_instance.device
@@ -277,7 +289,7 @@ class Handler:
     # use target model
     # after hypos = self.generator.sample_generate(prompt, src, N,    in rl-prompt
     # # # # # # # # # # # # # # # # # # # # # # # # 
-    def process_rewards(self,rewards,q_s,mode = "train"):
+    def process_rewards(self,rewards,q_s,repeat_times,mode = "train"):
         # number of rewards should be same with a_s above
         # 注意这里最终返回的是不考虑num_sample 和 num_bootstrap, bootstrap是为了减少variance（可能也不需要bootstrap， bootstrap =1, num_samples也是为了减少variance，因为最后是用的他们的mean作为rewards）
         
@@ -293,15 +305,18 @@ class Handler:
             input_rewards[tmp_input] += _bootstapped_rewards
 
         rewards_tensor = torch.stack(tmp_rewards)
-        if mode == "train" and self.compute_zscore:
+        # if # promtps = # source ,then tmp_rewards‘s value = mean(boostrapped_rewards), then rewards must be 0...
+        if mode == "train" and self.compute_zscore and repeat_times != 1:
             # each key is the input, we have # of prompts for each input times num_bootstrapping. 
             # according to the paper, it should have 4 for each, but it would be 8 considering the bootstrapping..
             rewards_tensor = self._compute_reward_zscores(rewards_tensor, 
                                                           q_s, 
                                                           input_rewards)
-        if self.reward_shaping:
-            assert self.reward_shaping == self.compute_zscore, "if no compute z-score, then the old range is not from 0 to 1 anymore"
-            rewards_tensor = self.get_reward_shaping_func(rewards_tensor)
+            
+            if self.reward_shaping:
+                assert self.reward_shaping == self.compute_zscore, "if no compute z-score, then the old range is not from 0 to 1 anymore"
+                rewards_tensor = self.get_reward_shaping_func(rewards_tensor)
+
         return rewards_tensor
 
 
@@ -366,7 +381,7 @@ class Handler:
 
 
 
-def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config):
+def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,s_p_t_file):
     
     outputs = prompt_model.generate(batch[data_config["keys"][data_config.source_text_pos]], do_sample = True)
     # outputs :sample_tokens, sample_logits, sample_ids, sample_length
@@ -391,12 +406,13 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
         _source_texts_repeated = repeat_texts(source_texts,int(len(_output_tokens)/len(source_texts)))
         # output_ids are on the first process
         target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens,handler)
+        s_p_t_file.write_all(pair_src_p_target(_source_texts_repeated,_output_tokens,target_lm_generations))
         source_texts_repeated,output_tokens,target_lm_generations = handler.align_q_and_p_with_a(_source_texts_repeated,_output_tokens,target_lm_generations)
         
         # whether need to use source + prompt / or only source is enough when using the cost model
         _reward_scores = reward_lm_fn(source_texts_repeated,target_lm_generations)
-        # to("0") b/c of main process
-        rewards_all = handler.process_rewards(_reward_scores,_source_texts_repeated)
+        _reward_scores = _reward_scores * train_config.reward_multiply
+        rewards_all = handler.process_rewards(_reward_scores,_source_texts_repeated,int(len(_output_tokens)/len(source_texts)))
         rewards_all = [
             torch.tensor(score, dtype=torch.bfloat16, device=device).view(
                 -1,
@@ -415,25 +431,29 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
     else:
         rewards_all = None
         ref_logits_all = None
-    
+        
     # 当为bf 16的时候要考虑是否需要在初始化的考虑bf16,且不同的元素计算也要考虑bf16???
     # 比如reward_model要不要.half()
-    dist.barrier()
+    if torch.distributed.is_initialized():
+        dist.barrier()
     if torch.distributed.is_initialized():
         ref_logits = torch.empty(sample_logits.shape,device = device).to(dtype=torch.bfloat16)
         torch.distributed.scatter(ref_logits, ref_logits_all,src = 0)
     else:
-        ref_logits = ref_logits_all.clone()
+        ref_logits = ref_logits_all[0].clone()
 
-    dist.barrier()
+    if torch.distributed.is_initialized():
+        dist.barrier()
 
     if torch.distributed.is_initialized():
         rewards = torch.empty(sample_ids.shape[0],device = device).to(dtype=torch.bfloat16)
         torch.distributed.scatter(rewards, rewards_all, src = 0)
     else:
-        rewards = rewards_all.clone()
+        rewards = rewards_all[0].clone()
 
-    dist.barrier()
+    if torch.distributed.is_initialized():
+        dist.barrier()
+
     if accelerator.is_main_process:
         assert all(rewards == rewards_all[0])
 
@@ -451,13 +471,20 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
 
 
 
-def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config):
+def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,s_p_t_file):
     
     off_tokens = batch[data_config["keys"][data_config.id_tokens_pos]]
     # off_ids = prompt_model_tokenizer(off_tokens,return_tensors = "np",add_special_tokens = False).input_ids
     # off_ids = np.stack(off_ids)
     # off_ids = torch.tensor(off_ids.astype(np.int64)).to(f"cuda:{accelerator.process_index}",dtype=torch.int64)
-    off_ids = prompt_model_tokenizer(off_tokens,return_tensors = "pt",add_special_tokens = False).input_ids.to(f"cuda:{accelerator.process_index}")
+
+    if not train_config.debug_off:
+        off_ids = prompt_model_tokenizer(off_tokens,return_tensors = "pt",add_special_tokens = False).input_ids.to(f"cuda:{accelerator.process_index}")
+
+    if train_config.debug_off:
+        off_ids = prompt_model_tokenizer(off_tokens,return_tensors = "pt",add_special_tokens = False, padding = 'max_length', max_length = prompt_model.prompt_length, truncation = True).input_ids.to(f"cuda:{accelerator.process_index}")
+
+
 
     # TODO: off_ids repeat since in the teacher_forcing, they would repeat!! but this raise a concern about they would learn to know each input would generate the same prompt?? then it has no point to repeat it any more? set rep_train = 1??
     # off_ids = torch.tensor(np.repeat(off_ids,prompt_model.source_train_reps,axis=0)).to(f"cuda:{accelerator.process_index}",dtype=torch.int64)
@@ -485,12 +512,18 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         _source_texts_repeated = repeat_texts(source_texts,int(len(_output_tokens)/len(source_texts)))
         # output_ids are on the first process
         target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens,handler)
+        s_p_t_file.write_all(pair_src_p_target(_source_texts_repeated,_output_tokens,target_lm_generations))
+
+
+
+
         source_texts_repeated,output_tokens,target_lm_generations = handler.align_q_and_p_with_a(_source_texts_repeated,_output_tokens,target_lm_generations)
         
         # whether need to use source + prompt / or only source is enough when using the cost model
         _reward_scores = reward_lm_fn(source_texts_repeated,target_lm_generations)
-        # to("0") b/c of main process
-        rewards_all = handler.process_rewards(_reward_scores,_source_texts_repeated)
+
+        _reward_scores = _reward_scores * train_config.reward_multiply
+        rewards_all = handler.process_rewards(_reward_scores,_source_texts_repeated,int(len(_output_tokens)/len(source_texts)))
         rewards_all = [
             torch.tensor(score, dtype=torch.bfloat16, device=device).view(
                 -1,
@@ -512,22 +545,26 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
     
     # 当为bf 16的时候要考虑是否需要在初始化的考虑bf16,且不同的元素计算也要考虑bf16???
     # 比如reward_model要不要.half()
-    dist.barrier()
+    if torch.distributed.is_initialized():
+        dist.barrier()
     if torch.distributed.is_initialized():
         ref_logits = torch.empty(sample_logits.shape,device = device).to(dtype=torch.bfloat16)
         torch.distributed.scatter(ref_logits, ref_logits_all,src = 0)
     else:
-        ref_logits = ref_logits_all.clone()
+        ref_logits = ref_logits_all[0].clone()
 
-    dist.barrier()
+    if torch.distributed.is_initialized():
+        dist.barrier()
 
     if torch.distributed.is_initialized():
         rewards = torch.empty(sample_ids.shape[0],device = device).to(dtype=torch.bfloat16)
         torch.distributed.scatter(rewards, rewards_all, src = 0)
     else:
-        rewards = rewards_all.clone()
+        rewards = rewards_all[0].clone()
 
-    dist.barrier()
+    if torch.distributed.is_initialized():
+        dist.barrier()
+
     if accelerator.is_main_process:
         assert all(rewards == rewards_all[0])
 

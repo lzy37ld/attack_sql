@@ -73,7 +73,6 @@ class InputConditionedPromptModel(BaseModel):
         self,
         source_texts: List[str],
         sample_ids: torch.LongTensor,
-        source_train_reps = None,
         **kwargs
     ) -> Dict[str, Any]:
 

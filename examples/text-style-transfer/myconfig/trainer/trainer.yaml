@@ -25,13 +25,18 @@ run_name: null
 
 
 # lzy
+debug_off: false
 mixed_precision: bf16
 only_compute_for_gt0_when_off: false
 batch_size: 2
-num_epochs: 200
+num_epochs: 100
 log_with: wandb
-learning_rate: 5e-5
+learning_rate: 1e-4
+reward_multiply: 1
+
+# if you use deepspeed, pls set grad_clipping to your number
 max_grad_norm: 5.0
+
 ref_update_method: polyak
 ref_learning_rate:  0.001
 sql_loss_impl: v2_v2r_v3_v3r
@@ -43,3 +48,4 @@ mix_strategy: alternate
 # sql-offpolicy
 base_root: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer
 save_dir: ckpt
+s_p_t_dir: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/s_p_t

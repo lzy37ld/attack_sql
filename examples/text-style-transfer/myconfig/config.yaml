@@ -32,4 +32,9 @@ base_lm:
 #   torch_dtype: bf16
 # trainer:
 #   log_with: null
-#   # training_mode: sql-onpolicy
+#   training_mode: sql-offpolicy
+#   debug_off: true
+#   num_epochs: 1
+# data:
+#   train: 1
+#   test: 10

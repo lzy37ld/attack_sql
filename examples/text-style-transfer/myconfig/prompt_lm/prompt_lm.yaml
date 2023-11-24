@@ -3,6 +3,6 @@ prompt_length: 20
 # for each input, how many prompt would generate
 source_train_reps: 4
 source_infer_reps: 1
-top_p: 1
+top_p: 0.7
 top_k: null
 num_beams: 1

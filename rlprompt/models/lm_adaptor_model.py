@@ -109,7 +109,6 @@ class LMAdaptorModel(BaseModel):
                                  logits)
         return logits
 
-    @torch.no_grad()
     def teacher_forcing(
         self,
         source_texts: List[str],
@@ -164,10 +163,11 @@ class LMAdaptorModel(BaseModel):
 
             if top_k is not None:
                 sampling_logits = _top_k_logits(logits, k=top_k)
-            elif top_p is not None:
+
+            if top_p is not None:
                 sampling_logits = _top_p_logits(logits, p=top_p)
-            else:
-                sampling_logits = logits
+
+            sampling_logits = logits
 
             # can not do bf 16
             # actions = (torch.distributions.categorical

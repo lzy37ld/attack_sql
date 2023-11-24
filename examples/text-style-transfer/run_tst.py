@@ -21,7 +21,8 @@ import numpy as np
 import torch.distributed as dist
 from torch.nn.utils.rnn import pad_sequence
 import itertools
-from accelerate import Accelerator
+from accelerate import Accelerator,DistributedType
+from accelerate.state import AcceleratorState
 from torch.utils.data import DataLoader
 import copy
 from utils import repeat_texts,is_main_process,is_dist
@@ -29,6 +30,12 @@ from accelerate.utils import set_seed
 from enum import Enum
 import pathlib
 from tqdm.auto import tqdm
+import jsonlines
+from datetime import datetime
+from print_color import print
+
+
+
 set_seed(42)
 
 
@@ -106,6 +113,12 @@ def main(config: "DictConfig"):
     optimizer = torch.optim.AdamW(prompt_model.parameters(), lr=train_config.learning_rate)
 
     accelerator = Accelerator(log_with=train_config.log_with,mixed_precision=train_config.mixed_precision)
+    if accelerator.distributed_type == DistributedType.DEEPSPEED:
+        print("In the context of deepspeed, it would ignore max_grad_norm and pls use deepspeed gradient_clipping",color="red")
+        print(f"gradient clipping is {accelerator.state.deepspeed_plugin.gradient_clipping}",color="yellow")
+        print(f"your max_grad_norm in config is {train_config.max_grad_norm}",color="yellow")
+        print("Pay attention to the mixed_precision",color="red")
+
     prompt_model, optimizer, train_dataloader = accelerator.prepare(
         prompt_model, optimizer, train_dataloader
     )
@@ -120,15 +133,20 @@ def main(config: "DictConfig"):
 
     progress_bar = tqdm(range(train_config.num_epochs * len(train_dataloader)), disable=not accelerator.is_local_main_process)
     over_all_steps = 0
+    pathlib.Path(train_config.s_p_t_dir).mkdir(exist_ok= True,parents= True)
+    s_p_t_file = jsonlines.open(os.path.join(train_config.s_p_t_dir,f"{ckpt_name}_{datetime.now().strftime('%Y.%m.%d-%H:%M')}.jsonl"),"a")
     for epoch in range(train_config.num_epochs):
         for step, batch in enumerate(train_dataloader):
+            if accelerator.is_main_process:
+                s_p_t_file.write({f"Epoch:{epoch}":"*"*50})
+                s_p_t_file.write({f"Epoch:{epoch}":"*"*50})
+                s_p_t_file.write({f"Epoch:{epoch}":"*"*50})
             progress_bar.update(1)
             prompt_model.train()
             over_all_steps += 1
             # 请注意有duplicate现象，需要处理
             # 或者我直接batsize不设置太大，让后确保# data = num_process * bathsize.. (我没有gradient accumulation)
             
-
             # TODO:写一个mode循环，先off_policy再 on(warm up)，可以写不同的strategy
             # TODO:保存reward
 
@@ -137,16 +155,14 @@ def main(config: "DictConfig"):
             reward_list = []
             for mode in modes:
                 if mode == ForwardMode.SQL_OFF_GT:
-                    _sql_loss,_rewards = run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config)
+                    _sql_loss,_rewards = run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,s_p_t_file)
                 elif mode == ForwardMode.SQL_ON:
-                    _sql_loss,_rewards = run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config)
+                    _sql_loss,_rewards = run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,s_p_t_file)
                 else:
                     raise NotImplementedError()
                 loss_list.append(_sql_loss)
                 reward_list.append(_rewards)
 
-            if len(loss_list) == 0:
-                continue
 
             loss = torch.mean(torch.stack(loss_list)).requires_grad_(True)
             rewards = torch.mean(torch.stack(reward_list))
@@ -171,7 +187,6 @@ def main(config: "DictConfig"):
 
                     for (name_param_,param_), (name_param,param) in zip(ref_instance.ref_model.named_parameters(),
                                             prompt_model_for_update_ref.named_parameters()):
-
                         param_.data.copy_((1 - train_config.ref_learning_rate) * param_
                                         + train_config.ref_learning_rate * param.to(ref_lm_device))
                         if "mlp" not in name_param:

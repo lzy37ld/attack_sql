@@ -106,13 +106,43 @@
 				"--config_file",
 				"/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/accelerate_config.yaml",
 				"--main_process_port",
-				"1235",
+				"1231",
 				"--gpu_ids",
 				"4,5,6,7",
 				"/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/run_tst.py",
 				"trainer.training_mode=sql-offpolicy",
-				"trainer.only_compute_for_gt0_when_off=True"
+				"handler.compute_zscore=True",
+				"handler.reward_shaping=True"
+				// "trainer.only_compute_for_gt0_when_off=True"
 			]
+		},
+		{
+			"name": "python run tst.py offpolicy",
+			"type": "python",
+			"request": "launch",
+			"program": "${file}",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"env": {"CUDA_DEVICE_ORDER":"PCI_BUS_ID",
+					"CUDA_VISIBLE_DEVICES":"3,4,7"			
+		},
+			"args": [
+				"trainer.training_mode=sql-offpolicy",
+				"handler.compute_zscore=True",
+				"handler.reward_shaping=True"
+				// "trainer.only_compute_for_gt0_when_off=True"
+			]
+		},
+		{
+			"name": "python run tst.py",
+			"type": "python",
+			"request": "launch",
+			"program": "${file}",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"env": {"CUDA_DEVICE_ORDER":"PCI_BUS_ID",
+					"CUDA_VISIBLE_DEVICES":"3,4,7"			
+					},
 		},
 		{
 			"name": "ds",
