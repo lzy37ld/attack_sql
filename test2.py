@@ -1,12 +1,6 @@
-from accelerate import Accelerator
-from accelerate.state import AcceleratorState
-
-
-def main():
-    accelerator = Accelerator()
-    # accelerator.print(f"{AcceleratorState()}")
-    accelerator.print(accelerator.state.deepspeed_plugin.gradient_clipping)
-
-
-if __name__ == "__main__":
-    main()
+def test(a,b,c):
+	print(a,b,c)
+	
+a = {"a":1}
+b = {"b":2,"c":3}
+test(**a,**b)

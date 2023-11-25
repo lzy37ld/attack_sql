@@ -101,7 +101,6 @@ def main(config: "DictConfig"):
     if is_dist():
         dist.barrier()
     reward_lm_fn = create_reward(config)
-
     target_lm_fn = create_targetlm(config)
     ref_instance,ref_lm_device = create_reflm(config,policy_model.model.mlp.state_dict())
     handler = Handler(config.handler)
@@ -210,14 +209,16 @@ def main(config: "DictConfig"):
     save_dir = os.path.join(config.trainer.base_root,config.trainer.save_dir)
     save_dir = os.path.join(save_dir,ckpt_name)
     pathlib.Path(save_dir).mkdir(parents= True, exist_ok= True)
-
+    accelerator.wait_for_everyone()
     prompt_model_for_save = accelerator.unwrap_model(prompt_model)
     prompt_model_for_save._model.model.save_pretrained(
     save_dir,
     is_main_process=accelerator.is_main_process,
     save_function=accelerator.save,
     state_dict=accelerator.get_state_dict(prompt_model._model.model),
-)
+    )
+    if accelerator.is_main_process:
+        prompt_model_tokenizer.save_pretrained(save_dir)
 
 
 

@@ -40,8 +40,8 @@ class InputConditionedPromptModel(BaseModel):
         do_sample: bool,
         top_k = None,
         top_p = None,
-        num_beams = None,
         max_new_tokens: Optional[int] = None,
+        num_beams = 1,
         infer: bool = False,
         **kwargs
     ) -> Dict[str, Any]:
@@ -56,10 +56,8 @@ class InputConditionedPromptModel(BaseModel):
             top_k = self.top_k
         if top_p is None:
             top_p = self.top_p
-        if num_beams is None:
-            num_beams = self.num_beams
+
         source_reps = self._do_source_reps(source_texts, num_reps)
-        # print(source_reps)
         return self._model.generate(source_texts=source_reps,
                                     do_sample=do_sample,
                                     top_k=top_k,

@@ -5,6 +5,18 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "evaluate",
+			"type": "python",
+			"request": "launch",
+			"program": "${file}",
+			"console": "integratedTerminal",
+			"env": {
+				"CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+				"CUDA_VISIBLE_DEVICES": "3,4"
+			},
+			"justMyCode": false
+		},
+		{
 			"name": "python test",
 			"type": "python",
 			"request": "launch",
@@ -21,7 +33,6 @@
 				"--output_dir",
 				"/tmp/test-clm"
 			]
-
 		},
 		{
 			"name": "accelerate run_clm_no_trainer",
@@ -123,9 +134,10 @@
 			"program": "${file}",
 			"console": "integratedTerminal",
 			"justMyCode": false,
-			"env": {"CUDA_DEVICE_ORDER":"PCI_BUS_ID",
-					"CUDA_VISIBLE_DEVICES":"3,4,7"			
-		},
+			"env": {
+				"CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+				"CUDA_VISIBLE_DEVICES": "3,4,7"
+			},
 			"args": [
 				"trainer.training_mode=sql-offpolicy",
 				"handler.compute_zscore=True",
@@ -140,9 +152,10 @@
 			"program": "${file}",
 			"console": "integratedTerminal",
 			"justMyCode": false,
-			"env": {"CUDA_DEVICE_ORDER":"PCI_BUS_ID",
-					"CUDA_VISIBLE_DEVICES":"3,4,7"			
-					},
+			"env": {
+				"CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+				"CUDA_VISIBLE_DEVICES": "3,4,7"
+			},
 		},
 		{
 			"name": "ds",

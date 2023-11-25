@@ -33,6 +33,7 @@ def create_reward(config):
             def __init__(
                 self, 
                 config,
+                device_map
             ): 
                 super().__init__()
                 model_name = config.model_name
@@ -41,11 +42,11 @@ def create_reward(config):
                 self.config = config
                 kwargs = check_torch_dtype(config)
                 if config.debug:
-                    model = AutoModelForCausalLM.from_pretrained(model_name, **kwargs)
+                    model = AutoModelForCausalLM.from_pretrained(model_name, **kwargs,**device_map)
                     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                     tokenizer.padding_side = "left"
                 else:
-                    model = AutoModelForScore.from_pretrained(model_name, **kwargs)
+                    model = AutoModelForScore.from_pretrained(model_name, **kwargs,**device_map)
                     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                     tokenizer.padding_side = "right"
                 if not tokenizer.pad_token:
@@ -106,21 +107,22 @@ def create_reward(config):
                     scores, _ = self._reward_run(q_and_p_s, ans_s, device)
 
                 return scores
-            
-        reward_model = RewardModel(config.reward_lm)
+        if config.evaluate:
+            device_map = {"device_map":"auto"}
+            reward_model_device = "cuda:0"
+        else:
+            reward_model_device = torch.cuda.device_count() - 1
+            device_map = {"device_map":reward_model_device}
+        reward_model = RewardModel(config.reward_lm,device_map=device_map)
         reward_model.eval()
-        reward_model.requires_grad_(False)
-        reward_model_device = torch.cuda.device_count() - 1
-        reward_model = reward_model.to(reward_model_device)
+        reward_model.requires_grad_(False) 
+
         @torch.no_grad()
-        def get_reward(q_and_p_s,ans_s,mode = "train"):
-            # "q_and_p_s are 'harmful input + prompt' question + prompt, ans_s are cost_lm's response"
+        def get_reward(q_s,ans_s,mode = "train"):
+            # "q_s are 'harmful input + prompt' question + prompt, ans_s are cost_lm's response"
 
-            scores = reward_model.reward_run(q_and_p_s,ans_s,device = reward_model_device, mode = mode)
+            scores = reward_model.reward_run(q_s,ans_s,device = reward_model_device, mode = mode)
             return scores
-
-
-
     else:
         get_reward = True
 
@@ -134,6 +136,7 @@ def create_targetlm(config):
             def __init__(
                 self, 
                 config,
+                device_map
             ): 
                 super().__init__()
                 model_name = config.model_name
@@ -142,7 +145,7 @@ def create_targetlm(config):
                 self.batch_size = config.batch_size
                 kwargs = check_torch_dtype(config)
 
-                model = AutoModelForCausalLM.from_pretrained(model_name, **kwargs)
+                model = AutoModelForCausalLM.from_pretrained(model_name, **kwargs,**device_map)
                 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
                 tokenizer.padding_side = "left"
                 if not tokenizer.pad_token:
@@ -185,17 +188,33 @@ def create_targetlm(config):
 
                 return generations
             
-        target_model = Target_Model(config.target_lm)
+
+        if config.evaluate:
+            device_map = {"device_map":"auto"}
+            target_model_device = "cuda:0"
+        else:
+            target_model_device = torch.cuda.device_count() - 2
+            device_map = {"device_map":target_model_device}
+        target_model = Target_Model(config.target_lm,device_map=device_map)
         target_model.eval()
         target_model.requires_grad_(False)
-        target_model_device = torch.cuda.device_count() - 2
-        target_model = target_model.to(target_model_device)
+
         @torch.no_grad()
-        def get_target_lm_generation(q_s,p_s,handler,mode = "train"):
+        def get_target_lm_generation(q_s,p_s,handler = None,mode = "train"):
             # q_s : questions  p_s:prompts
-            config.target_lm.generation_configs.num_return_sequences = handler.need_N_responses()
-            target_model.create_gen_config(config.target_lm.generation_configs)
+            if handler is not None:
+                config.target_lm.generation_configs.num_return_sequences = handler.need_N_responses()
+            else:
+                config.target_lm.generation_configs.num_return_sequences = 1
+                assert mode =="infer","mode should be infer"
+            if mode == "train":
+                target_model.create_gen_config(config.target_lm.generation_configs)
+            elif mode == "infer":
+                target_model.create_gen_config(config.eval_config.generation_configs)
+            else:
+                raise NotImplementedError()
             assert len(q_s) == len(p_s)
+            
             generation = target_model.targetlm_run(q_s,p_s,device = target_model_device, mode = mode)
             return generation
         

@@ -158,6 +158,8 @@ class LMAdaptorModel(BaseModel):
         sample_ids, sample_logits = [], []
         for i in range(max_new_tokens):
             logits = self._mlp_forward(state)  # [batch_size, vocab_size]
+
+            # add logits_bias to encourage sampleing...
             logits = logits + self.logit_bias
             # print(logits[:, 4:].min().item(), logits.max().item())
 
@@ -224,10 +226,11 @@ class LMAdaptorModel(BaseModel):
             logits = logits + self.logit_bias
 
             actions = logits.argmax(dim=-1)  # [batch_size]
-            tokens = [self.generator.tokenizer.convert_ids_to_tokens([a])[0]
-                      for a in actions.tolist()]
-            token_strs = [self.generator.tokenizer.convert_tokens_to_string([t])
-                          for t in tokens]
+            tokens = [self.tokenizer.convert_ids_to_tokens([a])[0]
+                    for a in actions.tolist()]
+            token_strs = [self.tokenizer.convert_tokens_to_string([t])
+                        for t in tokens]
+
 
             for s, t in zip(sample_tokens, tokens): 
                 s.append(t)
@@ -297,9 +300,9 @@ class LMAdaptorModel(BaseModel):
         input_ids = token_encoding['input_ids']
         input_lengths = token_encoding['attention_mask'].sum(dim=1)
         outputs = self.model.model(input_ids,past_key_values=past_key_values,use_cache=True)
+        last_hidden_state = outputs.last_hidden_state.to(f"cuda:{device}")
 
-        last_token_hidden_state = \
-            outputs.last_hidden_state[np.arange(input_ids.shape[0]),
+        last_token_hidden_state = last_hidden_state[np.arange(input_ids.shape[0]),
                                       (input_lengths - 1)]
         past_key_values = outputs.past_key_values
         return last_token_hidden_state, past_key_values

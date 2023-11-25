@@ -9,5 +9,5 @@ generation_configs:
   do_sample: True
   max_new_tokens: 40
   num_return_sequences: 1
-  top_p: 1
-  top_k: 10
+  top_p: 0.7
+  top_k: null

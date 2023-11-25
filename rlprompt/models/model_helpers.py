@@ -18,16 +18,18 @@ def set_pad_token(t):
     return t
 
 
-def make_my_base_lm(config,mlp_state_dict):
+def make_my_base_lm(config,mlp_state_dict,mode = "train"):
 
     my_config = AutoConfig.from_pretrained(config.base_lm.model_name)
     my_config.mlp_hidden_size = config.base_lm.mlp_hidden_size
     kwargs = check_torch_dtype(config.base_lm)
-    model = MyModel.from_pretrained(config.base_lm.model_name,config = my_config,**kwargs)
+    if mode == "infer":
+        model = MyModel.from_pretrained(config.base_lm.model_name,config = my_config,device_map = "auto",**kwargs)
+    else:
+        model = MyModel.from_pretrained(config.base_lm.model_name,config = my_config,**kwargs)
     tokenizer = set_pad_token(AutoTokenizer.from_pretrained(config.base_lm.model_name))
     if mlp_state_dict is not None:
         model.mlp.load_state_dict(mlp_state_dict)
-
     for param in model.lm_head.parameters():
         param.requires_grad = config.base_lm.grad_lm_head
     for param in model.model.parameters():
@@ -40,8 +42,8 @@ def make_my_base_lm(config,mlp_state_dict):
 
 
 # 这里可能考虑吧adaptor_lm的config要和prompt_lm的融合一下
-def make_lm_adaptor_model(config, mlp_state_dict = None) -> LMAdaptorModel:
-    base_lm,base_tokenizer = make_my_base_lm(config,mlp_state_dict)
+def make_lm_adaptor_model(config, mlp_state_dict = None, mode = "train") -> LMAdaptorModel:
+    base_lm,base_tokenizer = make_my_base_lm(config,mlp_state_dict, mode)
     return LMAdaptorModel(base_lm,base_tokenizer,
                           config.adaptor_lm.logit_bias,
                           config.adaptor_lm.fluent,

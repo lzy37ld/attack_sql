@@ -1,0 +1,53 @@
+defaults:
+  - data: data
+  - base_lm: base_lm
+  - adaptor_lm: adaptor_lm
+  - prompt_lm: prompt_lm
+  - reward_lm: reward_lm
+  - target_lm: target_lm
+  - trainer: trainer
+  - handler: handler
+  - _self_
+
+
+reward_lm:
+  debug: false
+target_lm:
+  debug: false
+base_lm:
+  debug: false
+  model_name: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/ckpt/trainer.training_mode=sql-offpolicy
+evaluate: true
+eval_config:
+  batch_size: 8
+  s_p_t_dir: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/s_p_t_evaluate
+  prompt_own: false
+  generation_configs:
+    do_sample: True
+    max_new_tokens: 40
+    num_return_sequences: 1
+    top_p: 0.7
+    top_k: null
+
+
+
+# reward_lm:
+#   debug: true
+#   model_name: gpt2
+#   torch_dtype: bf16
+# target_lm:
+#   debug: true
+#   model_name: gpt2
+#   torch_dtype: bf16
+# base_lm:
+#   debug: true
+#   model_name: stas/tiny-random-llama-2
+#   torch_dtype: bf16
+# trainer:
+#   log_with: null
+#   training_mode: sql-offpolicy
+#   debug_off: true
+#   num_epochs: 1
+# data:
+#   train: 1
+#   test: 10
