@@ -16,6 +16,7 @@ target_lm:
   debug: false
 base_lm:
   debug: false
+evaluate: false
 
 
 # reward_lm:

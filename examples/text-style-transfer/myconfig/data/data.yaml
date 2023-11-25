@@ -3,8 +3,8 @@
 
 path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behavior_controls.json
 ratio:
-  train: 7
-  test: 3
+  train: 1
+  test: 0
 keys: [goal,controls]
 source_text_pos: 0
 id_tokens_pos: 1

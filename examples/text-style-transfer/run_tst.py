@@ -64,7 +64,6 @@ def get_forward_modes(
             modes = candidate_modes
         else:
             raise NotImplementedError()
-
     else:
         training_mode_map = {"sql-onpolicy": ForwardMode.SQL_ON,
                             "sql-offpolicy": ForwardMode.SQL_OFF_GT}

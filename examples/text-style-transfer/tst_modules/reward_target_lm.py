@@ -200,13 +200,9 @@ def create_targetlm(config):
         target_model.requires_grad_(False)
 
         @torch.no_grad()
-        def get_target_lm_generation(q_s,p_s,handler = None,mode = "train"):
+        def get_target_lm_generation(q_s,p_s,num_return_sequences = 1,mode = "train"):
             # q_s : questions  p_s:prompts
-            if handler is not None:
-                config.target_lm.generation_configs.num_return_sequences = handler.need_N_responses()
-            else:
-                config.target_lm.generation_configs.num_return_sequences = 1
-                assert mode =="infer","mode should be infer"
+            config.target_lm.generation_configs.num_return_sequences = num_return_sequences
             if mode == "train":
                 target_model.create_gen_config(config.target_lm.generation_configs)
             elif mode == "infer":
@@ -424,7 +420,7 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
         _output_tokens = prompt_model_tokenizer.batch_decode(output_ids,skip_special_tokens = True)
         _source_texts_repeated = repeat_texts(source_texts,int(len(_output_tokens)/len(source_texts)))
         # output_ids are on the first process
-        target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens,handler)
+        target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens,handler.need_N_responses())
         s_p_t_file.write_all(pair_src_p_target(_source_texts_repeated,_output_tokens,target_lm_generations))
         source_texts_repeated,output_tokens,target_lm_generations = handler.align_q_and_p_with_a(_source_texts_repeated,_output_tokens,target_lm_generations)
         
@@ -530,7 +526,7 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         _output_tokens = prompt_model_tokenizer.batch_decode(output_ids,skip_special_tokens = True)
         _source_texts_repeated = repeat_texts(source_texts,int(len(_output_tokens)/len(source_texts)))
         # output_ids are on the first process
-        target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens,handler)
+        target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens,handler.need_N_responses())
         s_p_t_file.write_all(pair_src_p_target(_source_texts_repeated,_output_tokens,target_lm_generations))
 
 
