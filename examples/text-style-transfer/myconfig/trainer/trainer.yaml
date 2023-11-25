@@ -48,10 +48,6 @@ training_mode: sql-onpolicy
 # sql-onpolicy
 # sql-offpolicy
 mix_strategy: alternate
-# sql-mixed - alternate
-# sql-mixed - mix
-# sql-onpolicy
-# sql-offpolicy
 base_root: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer
 save_dir: ckpt
 s_p_t_dir: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/s_p_t

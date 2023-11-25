@@ -471,7 +471,12 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
 
     if accelerator.is_main_process:
         assert all(rewards == rewards_all[0])
-
+    print("*"* 50)
+    print("onpolicy,",sample_logits)
+    print("onpolicy,",ref_logits)
+    print("onpolicy,",sample_ids)
+    print("onpolicy,",rewards)
+    print("onpolicy,",sample_length)
     sql_loss, sql_loss_log = sql_loss_with_sparse_rewards(
         implementation=train_config.sql_loss_impl,
         logits=sample_logits,
@@ -480,7 +485,9 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
         sampled_actions=None,
         rewards=rewards,
         sequence_length=sample_length)
-    return sql_loss, rewards
+    
+    print("onpolicy",sql_loss)
+    return sql_loss, rewards.mean()
     
 
 
