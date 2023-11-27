@@ -420,7 +420,7 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
         _output_tokens = prompt_model_tokenizer.batch_decode(output_ids,skip_special_tokens = True)
         _source_texts_repeated = repeat_texts(source_texts,int(len(_output_tokens)/len(source_texts)))
         # output_ids are on the first process
-        target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens,handler.need_N_responses())
+        target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens, num_return_sequences = handler.need_N_responses())
         s_p_t_file.write_all(pair_src_p_target(_source_texts_repeated,_output_tokens,target_lm_generations))
         source_texts_repeated,output_tokens,target_lm_generations = handler.align_q_and_p_with_a(_source_texts_repeated,_output_tokens,target_lm_generations)
         
@@ -533,7 +533,7 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         _output_tokens = prompt_model_tokenizer.batch_decode(output_ids,skip_special_tokens = True)
         _source_texts_repeated = repeat_texts(source_texts,int(len(_output_tokens)/len(source_texts)))
         # output_ids are on the first process
-        target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens,handler.need_N_responses())
+        target_lm_generations = target_lm_fn(_source_texts_repeated,_output_tokens, num_return_sequences = handler.need_N_responses())
         s_p_t_file.write_all(pair_src_p_target(_source_texts_repeated,_output_tokens,target_lm_generations))
 
 
@@ -605,6 +605,7 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         sample_length = sample_length[gt0_index]
 
 
+
     sql_loss, sql_loss_log = sql_loss_with_sparse_rewards(
         implementation=train_config.sql_loss_impl,
         logits=sample_logits,
@@ -612,6 +613,9 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         actions=sample_ids,
         sampled_actions=None,
         rewards=rewards,
-        sequence_length=sample_length)
+        sequence_length=sample_length,
+        margin_constant = train_config.margin_constant,
+        margin_coefficient = train_config.margin_coefficient
+        )
     return sql_loss, rewards.mean()
     

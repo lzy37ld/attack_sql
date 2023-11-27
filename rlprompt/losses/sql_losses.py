@@ -151,6 +151,7 @@ def soft_q_loss_with_sparse_rewards_2(
         _recover_mle: bool = False,
 ) -> Tuple[torch.Tensor, Dict[str, Any]]:
     # Q是action选中的那些logits
+    # 只有Q_有用，terminal _V是为了剪掉最后一个V，因为V(s_{t+1}应该是0)
     Q = loss_utils.gather_2d_on_last_dim(
         tensor=logits,
         index=actions,
@@ -292,6 +293,7 @@ def soft_q_loss_with_sparse_rewards_2_2_reversed(
         raw_losses = raw_losses_2
         quantities_to_log = quantities_to_log_2
 
+
     if margin_constant is not None and margin_coefficient is not None:
         raw_losses_margin, quantities_to_log_margin = large_margin_classification_loss(
             logits=logits,
@@ -407,6 +409,53 @@ def soft_q_loss_with_sparse_rewards_0(
     quantities_to_log = {
         "V": V,
         "V_": V_,
+    }
+
+    return raw_losses, quantities_to_log
+
+
+
+def large_margin_classification_loss(
+        logits,
+        expert_actions,
+        margin_constant,
+):
+    """Deep Q-learning from Demonstrations
+
+    Arguments:
+        logits: [batch_size, sequence_length, vocab_size]
+        expert_actions: [batch_size, sequence_length]
+    """
+    # [0, 0, 0, ..., 1, 1, 1, ..., N, N, N, ...]
+    batch_indices = (
+        torch
+        .arange(expert_actions.shape[0])
+        .repeat_interleave(expert_actions.shape[1], dim=0))
+
+    # [0, 1, 2, ..., 0, 1, 2, ..., 0, 1, 2, ...]
+    sequence_indices = (
+        torch
+        .arange(expert_actions.shape[1])
+        .repeat(expert_actions.shape[0]))
+
+    # indices for the expert actions
+    indices = (
+        batch_indices,
+        sequence_indices,
+        expert_actions.flatten())
+
+    # get the margin, and mask margins of expert actions
+    margin = margin_constant * torch.ones_like(logits)
+    margin[indices] = 0
+
+    # [batch_size, sequence_length]
+    raw_losses = (
+        (logits + margin).max(dim=-1).values -
+        logits[indices].view(expert_actions.shape)
+    )
+
+    quantities_to_log = {
+        "loss": raw_losses,
     }
 
     return raw_losses, quantities_to_log
