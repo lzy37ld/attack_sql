@@ -8,17 +8,14 @@ from typing import Optional, Tuple, List
 
 
 class AttackDataset(Dataset):
-    def __init__(self,datas,keys):
+    def __init__(self,datas):
         self.datas = datas
-        self.keys = keys
+        
 
     def __len__(self):
         return len(self.datas)
     def __getitem__(self, index):
-        d = {}
-        for i,key in enumerate(self.keys):
-            d[key] = self.datas[index][key]
-        return d
+        return self.datas[index]
     
 
 def attack_collate_fn(batch):

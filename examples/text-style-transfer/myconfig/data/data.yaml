@@ -5,7 +5,9 @@ path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/refo
 ratio:
   train: 1
   test: 0
-keys: [q,p,target,file,harm]
-source_text_pos: 0
-id_tokens_pos: 1
-is_harm_pos: 4
+
+
+# keys: [q,p,target,file,harm]
+# source_text_pos: 0
+# id_tokens_pos: 1
+# is_harm_pos: 4

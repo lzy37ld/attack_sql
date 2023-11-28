@@ -48,7 +48,6 @@ def main(config: "DictConfig"):
 
 @torch.no_grad()
 def evaluate_fn(prompt_model,prompt_model_tokenizer,reward_lm_fn,target_lm_fn,eval_dataloader,config):
-    data_config = config.data
     reward_all = []
     q_ss = []
     p_ss = []
@@ -62,10 +61,10 @@ def evaluate_fn(prompt_model,prompt_model_tokenizer,reward_lm_fn,target_lm_fn,ev
     for batch in tqdm(eval_dataloader):
         label_s = batch["target"]
         file_s = batch["file"]
-        q_s = batch[data_config["keys"][data_config.source_text_pos]]
+        q_s = batch["q"]
         if config.eval_config.prompt_own:
 
-            p_s = batch[data_config["keys"][data_config.id_tokens_pos]]
+            p_s = batch["p"]
         else:
             q_s = list(set(q_s))
             q_s = list(set(q_s) - set(q_s).intersection(used_instances))

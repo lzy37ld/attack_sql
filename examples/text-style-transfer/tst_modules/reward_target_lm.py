@@ -10,7 +10,6 @@ import torch.distributed as dist
 from torch.nn.utils.rnn import pad_sequence
 from rlprompt.losses import sql_loss_with_sparse_rewards
 from rlprompt.models import (make_lm_adaptor_model, make_input_conditioned_prompt_model,check_torch_dtype)
-
 import numpy as np
 
 def pair_src_p_target(s,p,t):
@@ -398,13 +397,13 @@ class Handler:
 
 def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,s_p_t_file):
     
-    outputs = prompt_model.generate(batch[data_config["keys"][data_config.source_text_pos]], do_sample = True)
+    outputs = prompt_model.generate(batch["q"], do_sample = True)
     # outputs :sample_tokens, sample_logits, sample_ids, sample_length
     sample_logits,sample_ids,sample_length = outputs['sample_logits'],outputs['sample_ids'],outputs['sample_lengths']
     # 文字不能gather
     # gathered_sample_tokens = accelerator.gather(sample_tokens)
     gathered_sample_ids = accelerator.gather(sample_ids)
-    source_texts_tokens = prompt_model_tokenizer(batch[data_config["keys"][data_config.source_text_pos]],padding = True, truncation = True,return_tensors = "pt")["input_ids"].to(accelerator.process_index)
+    source_texts_tokens = prompt_model_tokenizer(batch["q"],padding = True, truncation = True,return_tensors = "pt")["input_ids"].to(accelerator.process_index)
     padded_source_texts_tokens = accelerator.pad_across_processes(source_texts_tokens,dim = 1, pad_index = prompt_model_tokenizer.eos_token_id, pad_first= False)
     gathered_source_texts_tokens = accelerator.gather(padded_source_texts_tokens)
     device = sample_ids.device
@@ -499,7 +498,7 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
 
 def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repeat_texts,ref_lm_instance,target_lm_fn,reward_lm_fn,handler,train_config,data_config,s_p_t_file):
     
-    off_tokens = batch[data_config["keys"][data_config.id_tokens_pos]]
+    off_tokens = batch["p"]
     # off_ids = prompt_model_tokenizer(off_tokens,return_tensors = "np",add_special_tokens = False).input_ids
     # off_ids = np.stack(off_ids)
     # off_ids = torch.tensor(off_ids.astype(np.int64)).to(f"cuda:{accelerator.process_index}",dtype=torch.int64)
@@ -516,12 +515,12 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
     # off_ids = torch.tensor(np.repeat(off_ids,prompt_model.source_train_reps,axis=0)).to(f"cuda:{accelerator.process_index}",dtype=torch.int64)
 
     assert off_ids.shape[1] == prompt_model.prompt_length
-    outputs = prompt_model.teacher_forcing(source_texts = batch[data_config["keys"][data_config.source_text_pos]],
+    outputs = prompt_model.teacher_forcing(source_texts = batch["q"],
                                            sample_ids = off_ids)
     
     sample_logits,sample_ids = outputs['sample_logits'],outputs['sample_ids']
     gathered_sample_ids = accelerator.gather(sample_ids)
-    source_texts_tokens = prompt_model_tokenizer(batch[data_config["keys"][data_config.source_text_pos]],padding = True, truncation = True,return_tensors = "pt")["input_ids"].to(accelerator.process_index)
+    source_texts_tokens = prompt_model_tokenizer(batch["q"],padding = True, truncation = True,return_tensors = "pt")["input_ids"].to(accelerator.process_index)
     padded_source_texts_tokens = accelerator.pad_across_processes(source_texts_tokens,dim = 1, pad_index = prompt_model_tokenizer.eos_token_id, pad_first= False)
     gathered_source_texts_tokens = accelerator.gather(padded_source_texts_tokens)
     device = sample_ids.device
@@ -613,8 +612,7 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         rewards = rewards[gt0_index]
         sample_length = sample_length[gt0_index]
 
-
-    batch_harm_index = batch[data_config["keys"][data_config.is_harm_pos]]
+    batch_harm_index = batch["harm"]
     sql_loss, sql_loss_log = sql_loss_with_sparse_rewards(
         implementation=train_config.sql_loss_impl,
         logits=sample_logits,
