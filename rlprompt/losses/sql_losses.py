@@ -20,6 +20,7 @@ def sql_loss_with_sparse_rewards(
         coefficient: Optional[float] = None,
         margin_constant: Optional[float] = None,
         margin_coefficient: Optional[float] = None,
+        batch_harm_index = None
 ) -> Tuple[torch.Tensor, Dict[str, Any]]:
     """Soft Q Learning Loss Functions with Sparse Rewards
 
@@ -58,7 +59,7 @@ def sql_loss_with_sparse_rewards(
             soft_q_loss_with_sparse_rewards_2_2_reversed,
             coefficient=coefficient,
             margin_constant=margin_constant,
-            margin_coefficient=margin_coefficient)
+            margin_coefficient=margin_coefficient,batch_harm_index = batch_harm_index)
 
     if implementation == "v3_v3r":
         _sql_loss_func = partial(
@@ -68,7 +69,9 @@ def sql_loss_with_sparse_rewards(
     if implementation == "v2_v2r_v3_v3r":
         _sql_loss_func = partial(
             soft_q_loss_with_sparse_rewards_2_2_reversed_3_3_reversed,
-            coefficient=coefficient)
+            coefficient=coefficient,margin_constant=margin_constant,
+            margin_coefficient=margin_coefficient,batch_harm_index = batch_harm_index)
+        
 
     if logits.shape != logits_.shape:
         raise ValueError(
@@ -86,6 +89,7 @@ def sql_loss_with_sparse_rewards(
     loss = loss_utils.mask_and_reduce(
         sequence=raw_losses,
         sequence_length=sequence_length)
+    
     loss_log = {
         "loss": loss,
         "sequence_length": sequence_length.float().mean(),
@@ -257,6 +261,7 @@ def soft_q_loss_with_sparse_rewards_2_2_reversed(
         coefficient: Optional[float] = None,
         margin_constant: Optional[float] = None,
         margin_coefficient: Optional[float] = None,
+        batch_harm_index = None
 ) -> Tuple[torch.Tensor, Dict[str, Any]]:
 
     raw_losses_2, quantities_to_log_2 = soft_q_loss_with_sparse_rewards_2(
@@ -294,19 +299,28 @@ def soft_q_loss_with_sparse_rewards_2_2_reversed(
         quantities_to_log = quantities_to_log_2
 
 
-    if margin_constant is not None and margin_coefficient is not None:
-        raw_losses_margin, quantities_to_log_margin = large_margin_classification_loss(
-            logits=logits,
-            expert_actions=actions,
-            margin_constant=margin_constant)
+    if batch_harm_index is not None:
+        # only off policy could have harm_index
 
-        raw_losses = raw_losses + margin_coefficient * raw_losses_margin
-        utils.add_prefix_to_dict_keys_inplace(
-            quantities_to_log_margin, prefix="margin/")
-        quantities_to_log = utils.unionize_dicts([
-            quantities_to_log,
-            quantities_to_log_margin,
-        ])
+        expert_actions = actions[torch.where(torch.tensor(batch_harm_index) > 0)]
+        empty_expert_actions = expert_actions.shape[0] == 0
+
+    if margin_constant is not None and margin_coefficient is not None and batch_harm_index is not None:
+        if not empty_expert_actions:
+            # though in off policy, when no demonstration data, dont need this
+
+            raw_losses_margin, quantities_to_log_margin = large_margin_classification_loss(
+                logits=logits,
+                expert_actions=expert_actions,
+                margin_constant=margin_constant)
+
+            raw_losses = raw_losses + margin_coefficient * raw_losses_margin
+            utils.add_prefix_to_dict_keys_inplace(
+                quantities_to_log_margin, prefix="margin/")
+            quantities_to_log = utils.unionize_dicts([
+                quantities_to_log,
+                quantities_to_log_margin,
+            ])
 
     return raw_losses, quantities_to_log
 
@@ -363,6 +377,9 @@ def soft_q_loss_with_sparse_rewards_2_2_reversed_3_3_reversed(
         rewards: torch.Tensor,
         sequence_length: torch.LongTensor,
         coefficient: Optional[float] = None,
+        margin_constant = None,
+        margin_coefficient = None,
+        batch_harm_index = None
 ) -> Tuple[torch.Tensor, Dict[str, Any]]:
 
     raw_losses_2, quantities_to_log_2 = soft_q_loss_with_sparse_rewards_2_2_reversed(
@@ -371,7 +388,11 @@ def soft_q_loss_with_sparse_rewards_2_2_reversed_3_3_reversed(
         actions=actions,
         rewards=rewards,
         sequence_length=sequence_length,
-        coefficient=coefficient)
+        coefficient=coefficient,
+        margin_constant=margin_constant,
+        margin_coefficient=margin_coefficient,
+        batch_harm_index = batch_harm_index)
+    
 
     raw_losses_3, quantities_to_log_3 = soft_q_loss_with_sparse_rewards_3_3_reversed(
         logits=logits,
@@ -427,6 +448,9 @@ def large_margin_classification_loss(
         expert_actions: [batch_size, sequence_length]
     """
     # [0, 0, 0, ..., 1, 1, 1, ..., N, N, N, ...]
+
+    # only the data is harmful can we say it's demonstration
+
     batch_indices = (
         torch
         .arange(expert_actions.shape[0])

@@ -123,7 +123,6 @@ class LMAdaptorModel(BaseModel):
         for i in range(sample_ids.shape[-1]):
             logits = self._mlp_forward(state)
             logits = logits + self.logit_bias
-
             actions = sample_ids[:, i]
             tokens = [self.tokenizer.convert_ids_to_tokens([a])[0]
                       for a in actions.tolist()]

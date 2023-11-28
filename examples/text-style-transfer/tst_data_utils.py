@@ -11,12 +11,13 @@ class AttackDataset(Dataset):
     def __init__(self,datas,keys):
         self.datas = datas
         self.keys = keys
+
     def __len__(self):
         return len(self.datas)
     def __getitem__(self, index):
         d = {}
         for i,key in enumerate(self.keys):
-            d[key] = self.datas[index][i]
+            d[key] = self.datas[index][key]
         return d
     
 

@@ -43,14 +43,25 @@ class InputConditionedPromptModel(BaseModel):
         max_new_tokens: Optional[int] = None,
         num_beams = 1,
         infer: bool = False,
+        source_infer_reps = None,
+        source_train_reps = None,
         **kwargs
     ) -> Dict[str, Any]:
         if max_new_tokens is None: 
             max_new_tokens = self.prompt_length
+
+
         if infer: 
-            num_reps = self.source_infer_reps
+            if source_infer_reps is None:
+                num_reps = self.source_infer_reps
+            else:
+                num_reps = source_infer_reps
         else: 
-            num_reps = self.source_train_reps
+            if source_train_reps is None:
+                num_reps = self.source_train_reps
+            else:
+                num_reps = source_train_reps
+
 
         if top_k is None:
             top_k = self.top_k

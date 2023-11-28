@@ -1,6 +1,6 @@
 
 prompt_length: 20
-# for each input, how many prompt would generate
+# for each input, how many prompt would be generated
 source_train_reps: 4
 source_infer_reps: 1
 top_p: 1

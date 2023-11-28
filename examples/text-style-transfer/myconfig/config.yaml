@@ -10,34 +10,41 @@ defaults:
   - _self_
 
 
-# reward_lm:
-#   debug: false
-# target_lm:
-#   debug: false
-# base_lm:
-#   debug: false
-# evaluate: false
-
-
 reward_lm:
-  debug: true
-  model_name: gpt2
-  torch_dtype: bf16
+  debug: false
 target_lm:
-  debug: true
-  model_name: gpt2
-  torch_dtype: bf16
+  debug: false
 base_lm:
-  debug: true
-  model_name: stas/tiny-random-llama-2
-  torch_dtype: bf16
+  debug: false
 trainer:
-  log_with: null
-  training_mode: sql-offpolicy
-  debug_off: true
-  num_epochs: 1
-data:
-  path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl
-  train: 1
-  test: 10
+  reward_strategy: gt0
+  reward_multiply: 1
+  reward_multiply_gp0: 5
+  # 我不能用z score，因为那个是为了减少variance，也就是
 evaluate: false
+
+
+# reward_lm:
+#   debug: true
+#   model_name: gpt2
+#   torch_dtype: bf16
+# target_lm:
+#   debug: true
+#   model_name: gpt2
+#   torch_dtype: bf16
+# base_lm:
+#   debug: true
+#   model_name: stas/tiny-random-llama-2
+#   torch_dtype: bf16
+# trainer:
+#   log_with: null
+#   training_mode: sql-offpolicy
+#   debug_off: true
+#   num_epochs: 1
+#   margin_constant: 5
+#   margin_coefficient: 1
+# data:
+#   path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl
+#   train: 1
+#   test: 10
+# evaluate: false

@@ -1,10 +1,11 @@
 # path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behaviors.jsonl
 # keys: [goal]
 
-path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behavior_controls.json
+path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl
 ratio:
   train: 1
   test: 0
-keys: [goal,controls]
+keys: [q,p,target,file,harm]
 source_text_pos: 0
 id_tokens_pos: 1
+is_harm_pos: 4

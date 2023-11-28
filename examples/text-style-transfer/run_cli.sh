@@ -19,6 +19,14 @@ accelerate launch --config_file ./accelerate_config.yaml --main_process_port 123
 
 
 
+
+# use the demonstration from q-learning...
+accelerate launch --config_file ./accelerate_config.yaml --main_process_port 1235 --gpu_ids 1,2,3,6 run_tst.py trainer.training_mode=sql-mixed trainer.mix_strategy=mix trainer.margin_constant=5 trainer.margin_coefficient=3
+
+# multiply the positive rewards
+accelerate launch --config_file ./accelerate_config.yaml --main_process_port 1229 --gpu_ids 1,2,3,6 run_tst.py trainer.training_mode=sql-mixed trainer.mix_strategy=mix trainer.margin_constant=5 trainer.margin_coefficient=3 trainer.reward_strategy=gt0
+
+
 # because many adversarial prompt from llm-attack would not work..
 accelerate launch --config_file ./accelerate_config.yaml --main_process_port 1239 --gpu_ids 1,2,3,4 run_tst.py trainer.training_mode=sql-offpolicy trainer.only_compute_for_gt0_when_off=True
 accelerate launch --config_file ./accelerate_config.yaml --main_process_port 1240 --gpu_ids 1,2,3,4 run_tst.py trainer.training_mode=sql-offpolicy trainer.only_compute_for_gt0_when_off=True trainer.learning_rate=4e-5
@@ -27,6 +35,18 @@ accelerate launch --config_file ./accelerate_config.yaml --main_process_port 123
 accelerate launch --config_file ./accelerate_config.yaml --main_process_port 1239 --gpu_ids 1,2,3,4 run_tst.py trainer.training_mode=sql-offpolicy trainer.only_compute_for_gt0_when_off=True trainer.learning_rate=1e-5
 
 
+
+
+
+
 # evaluate
 
 python evaluate.py data.path=/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl eval_config.prompt_own=True data.ratio.train=0 data.ratio.test=1
+
+# evaluate for prompt model
+python evaluate.py data.path=/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl eval_config.prompt_own=False data.ratio.train=0 data.ratio.test=1 base_lm.model_name="'/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/ckpt/trainer.training_mode=sql-mixed|trainer.mix_strategy=mix|trainer.margin_constant=5|trainer.margin_coefficient=3|trainer.reward_strategy=gt0'" eval_config.prompt_lm.source_infer_reps=1
+python evaluate.py data.path=/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl eval_config.prompt_own=False data.ratio.train=0 data.ratio.test=1 base_lm.model_name="'/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/ckpt/trainer.training_mode=sql-mixed|trainer.mix_strategy=mix|trainer.margin_constant=5|trainer.margin_coefficient=3|trainer.reward_strategy=gt0'" eval_config.prompt_lm.source_infer_reps=4
+python evaluate.py data.path=/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl eval_config.prompt_own=False data.ratio.train=0 data.ratio.test=1 base_lm.model_name="'/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/ckpt/trainer.training_mode=sql-mixed|trainer.mix_strategy=mix|trainer.margin_constant=5|trainer.margin_coefficient=3|trainer.reward_strategy=gt0'" eval_config.prompt_lm.source_infer_reps=8
+python evaluate.py data.path=/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl eval_config.prompt_own=False data.ratio.train=0 data.ratio.test=1 base_lm.model_name="'/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/ckpt/trainer.training_mode=sql-mixed|trainer.mix_strategy=mix|trainer.margin_constant=5|trainer.margin_coefficient=3'" eval_config.prompt_lm.source_infer_reps=1
+python evaluate.py data.path=/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl eval_config.prompt_own=False data.ratio.train=0 data.ratio.test=1 base_lm.model_name="'/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/ckpt/trainer.training_mode=sql-mixed|trainer.mix_strategy=mix|trainer.margin_constant=5|trainer.margin_coefficient=3'" eval_config.prompt_lm.source_infer_reps=4
+python evaluate.py data.path=/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl eval_config.prompt_own=False data.ratio.train=0 data.ratio.test=1 base_lm.model_name="'/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/ckpt/trainer.training_mode=sql-mixed|trainer.mix_strategy=mix|trainer.margin_constant=5|trainer.margin_coefficient=3'" eval_config.prompt_lm.source_infer_reps=8

@@ -119,10 +119,10 @@ def create_reward(config):
 
         @torch.no_grad()
         def get_reward(q_s,ans_s,mode = "train"):
-            # "q_s are 'harmful input + prompt' question + prompt, ans_s are cost_lm's response"
-
             scores = reward_model.reward_run(q_s,ans_s,device = reward_model_device, mode = mode)
             return scores
+        
+        
     else:
         get_reward = True
 
@@ -206,7 +206,7 @@ def create_targetlm(config):
             if mode == "train":
                 target_model.create_gen_config(config.target_lm.generation_configs)
             elif mode == "infer":
-                target_model.create_gen_config(config.eval_config.generation_configs)
+                target_model.create_gen_config(config.eval_config.target_lm.generation_configs)
             else:
                 raise NotImplementedError()
             assert len(q_s) == len(p_s)
@@ -426,7 +426,11 @@ def run_train_sql_on(batch,prompt_model,prompt_model_tokenizer,accelerator,repea
         
         # whether need to use source + prompt / or only source is enough when using the cost model
         _reward_scores = reward_lm_fn(source_texts_repeated,target_lm_generations)
-        _reward_scores = _reward_scores * train_config.reward_multiply
+        if train_config.reward_strategy is not None:
+            if train_config.reward_strategy == "all":
+                _reward_scores = _reward_scores * train_config.reward_multiply
+            elif train_config.reward_strategy == "gt0":
+                _reward_scores = _reward_scores * train_config.reward_multiply_gp0
         rewards_all = handler.process_rewards(_reward_scores,_source_texts_repeated,int(len(_output_tokens)/len(source_texts)))
         rewards_all = [
             torch.tensor(score, dtype=torch.bfloat16, device=device).view(
@@ -544,7 +548,12 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         # whether need to use source + prompt / or only source is enough when using the cost model
         _reward_scores = reward_lm_fn(source_texts_repeated,target_lm_generations)
 
-        _reward_scores = _reward_scores * train_config.reward_multiply
+        if train_config.reward_strategy is not None:
+            if train_config.reward_strategy == "all":
+                _reward_scores = _reward_scores * train_config.reward_multiply
+            elif train_config.reward_strategy == "gt0":
+                _reward_scores = _reward_scores * train_config.reward_multiply_gp0
+                
         rewards_all = handler.process_rewards(_reward_scores,_source_texts_repeated,int(len(_output_tokens)/len(source_texts)))
         rewards_all = [
             torch.tensor(score, dtype=torch.bfloat16, device=device).view(
@@ -605,7 +614,7 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         sample_length = sample_length[gt0_index]
 
 
-
+    batch_harm_index = batch[data_config["keys"][data_config.is_harm_pos]]
     sql_loss, sql_loss_log = sql_loss_with_sparse_rewards(
         implementation=train_config.sql_loss_impl,
         logits=sample_logits,
@@ -615,7 +624,8 @@ def run_train_sql_off(batch,prompt_model,prompt_model_tokenizer,accelerator,repe
         rewards=rewards,
         sequence_length=sample_length,
         margin_constant = train_config.margin_constant,
-        margin_coefficient = train_config.margin_coefficient
+        margin_coefficient = train_config.margin_coefficient,
+        batch_harm_index = batch_harm_index
         )
     return sql_loss, rewards.mean()
     
