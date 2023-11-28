@@ -21,6 +21,7 @@ def make_attack_datasets(data_config):
     train_ratio = ratio.train / (ratio.train + ratio.test)
     train_datas = datas[:int(len(datas) * train_ratio)]
     test_datas = datas[int(len(datas) * train_ratio):]
+    
     train_dataset = AttackDataset(train_datas)
     test_dataset = AttackDataset(test_datas)
     return train_dataset,test_dataset

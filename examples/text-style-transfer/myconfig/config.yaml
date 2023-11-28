@@ -44,7 +44,7 @@ evaluate: false
 #   margin_constant: 5
 #   margin_coefficient: 1
 # data:
-#   path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl
+#   path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack_dedup.jsonl
 #   train: 1
 #   test: 10
 # evaluate: false

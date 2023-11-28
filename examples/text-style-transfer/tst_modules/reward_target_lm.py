@@ -164,6 +164,10 @@ def create_targetlm(config):
                     batch_inputs = q_s[i: i +batch_size]
                     batch_outputs = p_s[i: i +batch_size]
                     batch = [self.template.format(input = batch_inputs[index], prompt = batch_outputs[index]) for index in range(len(batch_inputs))]
+                    if self.after_sys_tokens is not None:
+                        # space here is important!!
+                        batch = [batch[i] + " " + self.after_sys_tokens[i] for i in range(len(batch))]
+                    print(batch[0])
                     try:
                         input_ids = self.tokenizer(batch, return_tensors='pt',padding= True).to(device)
                         output = self.model.generate(**input_ids,generation_config = self.gen_config)
@@ -199,16 +203,22 @@ def create_targetlm(config):
         target_model.requires_grad_(False)
 
         @torch.no_grad()
-        def get_target_lm_generation(q_s,p_s,num_return_sequences = 1,mode = "train"):
+        def get_target_lm_generation(q_s,p_s,num_return_sequences = 1,mode = "train",after_sys_tokens = None):
             # q_s : questions  p_s:prompts
-            config.target_lm.generation_configs.num_return_sequences = num_return_sequences
             if mode == "train":
-                target_model.create_gen_config(config.target_lm.generation_configs)
+                generation_configs = config.target_lm.generation_configs
             elif mode == "infer":
-                target_model.create_gen_config(config.eval_config.target_lm.generation_configs)
+                generation_configs = config.eval_config.target_lm.generation_configs
             else:
                 raise NotImplementedError()
+            generation_configs.num_return_sequences = num_return_sequences
+            target_model.create_gen_config(generation_configs)
             assert len(q_s) == len(p_s)
+            if after_sys_tokens is not None:
+                assert len(q_s) == len(after_sys_tokens)
+            
+            target_model.after_sys_tokens = after_sys_tokens
+
             
             generation = target_model.targetlm_run(q_s,p_s,device = target_model_device, mode = mode)
             return generation

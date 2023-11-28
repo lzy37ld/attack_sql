@@ -7,3 +7,5 @@
 *.egg-info
 ckpt/
 s_p_t/
+s_p_t_evaluate/
+analysis/

@@ -27,7 +27,7 @@ def make_my_base_lm(config,mlp_state_dict,mode = "train"):
         model = MyModel.from_pretrained(config.base_lm.model_name,config = my_config,device_map = "auto",**kwargs)
     else:
         model = MyModel.from_pretrained(config.base_lm.model_name,config = my_config,**kwargs)
-    tokenizer = set_pad_token(AutoTokenizer.from_pretrained(config.base_lm.model_name))
+    tokenizer = set_pad_token(AutoTokenizer.from_pretrained(config.base_lm.model_name,padding_side = "left"))
     if mlp_state_dict is not None:
         model.mlp.load_state_dict(mlp_state_dict)
     for param in model.lm_head.parameters():

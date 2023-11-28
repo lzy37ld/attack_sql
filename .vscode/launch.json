@@ -13,9 +13,16 @@
 			"console": "integratedTerminal",
 			"env": {
 				"CUDA_DEVICE_ORDER": "PCI_BUS_ID",
-				"CUDA_VISIBLE_DEVICES": "3,4"
+				"CUDA_VISIBLE_DEVICES": "2,3"
 			},
-			"justMyCode": false
+			"justMyCode": false,
+			"args": [
+				"data.path='/home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack_dedup.jsonl'",
+				"eval_config.prompt_own=True",
+				"data.ratio.train=0",
+				"data.ratio.test=1",
+				"eval_config.append_label_length=3"
+			]
 		},
 		{
 			"name": "python test",

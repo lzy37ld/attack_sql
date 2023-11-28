@@ -1,7 +1,7 @@
 # path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/harmful_behaviors.jsonl
 # keys: [goal]
 
-path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack.jsonl
+path: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/attack_data/reformatted_attack_dedup.jsonl
 ratio:
   train: 1
   test: 0

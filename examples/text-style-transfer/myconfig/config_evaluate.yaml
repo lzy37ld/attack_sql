@@ -16,23 +16,23 @@ target_lm:
   debug: false
 base_lm:
   debug: false
-  model_name: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/ckpt/trainer.training_mode=sql-offpolicy
 evaluate: true
 eval_config:
-  batch_size: 32
+  batch_size: 16
+  append_label_length: -1
   s_p_t_dir: /home/liao.629/rl-prompt-lzy/examples/text-style-transfer/s_p_t_evaluate
   prompt_own: false
   target_lm:
+  # in GCG it's greedy decoding, do_sample = False, what about in our Q-learning setting?
     generation_configs:
-      do_sample: true
-      max_new_tokens: 40
+      do_sample: false
+      max_new_tokens: 60
       num_return_sequences: 1
       top_p: 0.7
       top_k: null
   prompt_lm:
     do_sample: true
     source_infer_reps: 4
-
 
 
 
